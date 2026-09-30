@@ -1,52 +1,149 @@
-# EZP2023+ USB High-Speed Programmer (Linux Port & Protocol Specification)
+# EZP2023+ USB High-Speed Programmer (Linux Port & IMSProg Integration)
 
-This repository contains the reverse-engineered Linux driver, standalone CLI tools (both Python and native C), protocol documentation, and original Windows distribution for the **EZP2023+** USB High-Speed SPI Flash / EEPROM Programmer (as well as compatible **EZP2019 / EZP2019+ / EZP2020 / EZP2023** devices).
+This repository contains the complete reverse-engineered Linux support for the **EZP2023+** USB High-Speed SPI Flash / EEPROM Programmer (as well as compatible **EZP2019 / EZP2019+ / EZP2020 / EZP2023** devices).
 
----
-
-## ⚡ Key Highlights
-
-* **No Kernel Module Needed**: The Windows driver is an INF wrapper around `libusb-win32` (v1.2.6.0). On Linux, the programmer is driven natively in **userspace** using **`libusb-1.0`**.
-* **Zero-Dependency Python Utility**: [`linux/ezp2023.py`](linux/ezp2023.py) works out of the box using Python's built-in `ctypes` to talk to system `libusb-1.0`.
-* **High-Performance Native C Tool**: [`linux/ezp2023.c`](linux/ezp2023.c) compiles cleanly with `make` for maximum flash read/write speed.
-* **Full Database Integration**: Supports the 878 chip definitions extracted from the official [`EZP2023+.Dat`](EZP2023+%20ver3.0/EZP2023+.Dat) file via [`linux/ezp_db.py`](linux/ezp_db.py).
-* **udev Rules Included**: [`linux/99-ezp2023.rules`](linux/99-ezp2023.rules) enables non-root access on any standard Linux distribution.
+It provides:
+1. **Full GUI Integration in IMSProg**: Upstream-ready port of [IMSProg](https://github.com/akbar-npj/IMSProg) with native EZP2023+ support.
+2. **Pre-built Packages**: Ready-to-install `.deb` (Debian/Ubuntu/Raspberry Pi OS) and `.rpm` (Fedora/RHEL) packages for ARM64/AArch64 with both **4K and 16K kernel page size support**.
+3. **Standalone CLI Utilities**: Both a zero-dependency Python script ([`linux/ezp2023.py`](linux/ezp2023.py)) and a high-performance native C tool ([`linux/ezp2023.c`](linux/ezp2023.c)).
+4. **Database & Protocol Specs**: Extracted 878-chip database and protocol reverse engineering notes in [`linux/README.md`](linux/README.md).
 
 ---
 
-## 📁 Repository Structure
+## ⚡ Highlights
 
-```
-├── EZP2023+ ver3.0/          # Original Windows software, manuals, drivers & database
-│   ├── EZP2023+.exe          # Official Windows 32-bit application
-│   ├── EZP2023+.Dat          # 878-chip database (68-byte binary records)
-│   ├── Win10_11_driver/      # libusb-win32 INF and driver package
-│   └── *.pdf                 # Official user manuals (Chinese & English)
-│
-├── linux/                    # Linux Port & Reverse Engineering
-│   ├── 99-ezp2023.rules      # Udev rules for device permissions
-│   ├── ezp2023.py            # Standalone Python CLI programmer (ctypes + libusb)
-│   ├── ezp_db.py             # Parser / search tool for EZP2023+.Dat
-│   ├── ezp2023.c             # Fast native C implementation
-│   ├── Makefile              # Build script for native C binary
-│   └── README.md             # Complete technical reverse-engineering documentation
-│
-└── .gitignore
-```
+* **No Kernel Modules**: Driven completely in **userspace** using **`libusb-1.0`**.
+* **4K & 16K Page Support**: All arm64 binaries are linked with `-Wl,-z,max-page-size=65536` (`0x10000` alignment), allowing them to run without `SIGSEGV` or alignment issues across standard 4KB kernels (Raspberry Pi 4, Debian/Ubuntu) and 16KB kernels (Raspberry Pi 5 default, Apple Silicon Asahi Linux).
+* **Multiple Interfaces**: Choose between the full Qt6 GUI ([`IMSProg`](IMSProg/)) or lightweight terminal CLI tools.
 
 ---
 
-## 🚀 Quick Start (Linux)
+## 📦 Quick Install (Pre-built Packages)
 
-### 1. Install udev permissions
+Pre-built binaries for **ARM64 / AArch64** are provided in the [`packages/`](packages/) directory:
+
+### Debian / Ubuntu / Raspberry Pi OS (`arm64`):
 ```bash
-sudo cp linux/99-ezp2023.rules /etc/udev/rules.d/
+sudo apt update
+sudo apt install -y ./packages/imsprog_1.9.1-1_arm64.deb
+```
+
+### Fedora / RHEL (`aarch64`):
+```bash
+sudo dnf install ./packages/imsprog-1.9.1-1.fc44.aarch64.rpm
+```
+
+### Standalone Portable Archives:
+If you prefer not to use package managers:
+```bash
+# For Debian/Ubuntu based systems:
+sudo tar -C / -xzf packages/imsprog-1.9.1-debian12-arm64.tar.gz
+
+# For Fedora/RHEL based systems:
+sudo tar -C / -xzf packages/imsprog-1.9.1-fedora-aarch64.tar.gz
+
+# Reload udev rules
 sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
-### 2. Run the Python CLI Tool
+---
+
+## 🛠️ Compiling IMSProg From Source
+
+### 1. Prerequisites
+
+#### Debian / Ubuntu / Raspberry Pi OS:
 ```bash
-# Auto-detect chip & query database
+sudo apt update
+sudo apt install -y \
+    build-essential \
+    cmake \
+    pkg-config \
+    qt6-base-dev \
+    qt6-tools-dev \
+    qt6-tools-dev-tools \
+    qt6-l10n-tools \
+    libusb-1.0-0-dev \
+    libftdi1-dev
+```
+
+#### Fedora / RHEL:
+```bash
+sudo dnf install -y \
+    gcc-c++ \
+    cmake \
+    pkgconf-pkg-config \
+    qt6-qtbase-devel \
+    qt6-qttools-devel \
+    qt6-linguist \
+    libusb1-devel \
+    libftdi-devel
+```
+
+---
+
+### 2. Native Compilation (All Subprojects)
+
+Clone the repository with submodules:
+```bash
+git clone --recurse-submodules https://github.com/akbar-npj/EZP2023-Linux.git
+cd EZP2023-Linux/IMSProg
+```
+
+Configure and build:
+```bash
+mkdir -p build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+cmake --build . -j$(nproc)
+sudo cmake --install .
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+> [!NOTE]
+> On ARM64 systems, CMake automatically applies `-Wl,-z,max-page-size=65536` so the generated binaries are 64KB page-aligned and compatible with both 4KB and 16KB kernels.
+
+---
+
+### 3. Containerized Build (Debian .deb via Podman / Docker)
+
+You can build a clean, reproducible Debian `.deb` package in an isolated container without installing dev dependencies on your host:
+
+```bash
+# Run the automated build script:
+./build_debian_package.sh
+```
+
+This compiles inside a Debian 12 container and outputs:
+* `packages/imsprog_1.9.1-1_arm64.deb`
+* `packages/imsprog-1.9.1-debian12-arm64.tar.gz`
+
+---
+
+### 4. Building the Fedora RPM Package
+
+```bash
+cd IMSProg
+
+# Prepare source tarball for rpmbuild
+mkdir -p ~/rpmbuild/SOURCES
+tar --transform 's|^|IMSProg-1.9.1/|' --exclude='.git' --exclude='build*' -czf ~/rpmbuild/SOURCES/v1.9.1.tar.gz -C . .
+
+# Build the RPM
+rpmbuild -ba rpm/imsprog.spec
+```
+The output package will be placed in `~/rpmbuild/RPMS/aarch64/`.
+
+---
+
+## 💻 Standalone CLI Tools
+
+For headless servers, fast scripting, or environments without Qt, standalone CLI tools are available in [`linux/`](linux/).
+
+### Python CLI (`linux/ezp2023.py`)
+Requires only standard Python 3 and `libusb-1.0` (zero external Python pip packages required):
+
+```bash
+# Detect chip & query database
 ./linux/ezp2023.py detect
 
 # Backup / Read flash to file
@@ -65,7 +162,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 ./linux/ezp2023.py verify new_bios.bin
 ```
 
-### 3. Build & Run Native C Binary
+### High-Performance Native C CLI (`linux/ezp2023.c`)
 ```bash
 cd linux
 make
@@ -77,19 +174,46 @@ make
 
 ---
 
-## 🔍 Hardware & Protocol Overview
+## 🔌 Hardware & Protocol Overview
 
-* **USB VID / PID**: `0x1FC8` / `0x310B` (EZP2019, EZP2023+), `0x310C` (EZP2019+), `0x310D` (EZP2023)
+* **Supported Programmer Models**:
+  * `EZP2019 / EZP2023+`: USB VID `0x1FC8`, PID `0x310B`
+  * `EZP2019+`: USB VID `0x1FC8`, PID `0x310C`
+  * `EZP2023`: USB VID `0x1FC8`, PID `0x310D`
 * **Endpoints**:
-  * `0x02` (Bulk OUT): 64-byte command packet
-  * `0x82` (Bulk IN): 64-byte command response & bulk read data stream
-  * `0x01` (Bulk OUT): Fast bulk data write stream
-* **Mandatory Handshake**: Device firmware requires string descriptor queries (`GET_DESCRIPTOR` for strings `1` and `2`, `"www.zhifengsoft.com"` / `"WinUSBComm Device"`) before accepting bulk transfers.
-* Detailed protocol layout and command packet structure is available in [**`linux/README.md`**](linux/README.md).
+  * `0x02` (Bulk OUT): 64-byte command packets
+  * `0x82` (Bulk IN): 64-byte command responses & read data
+  * `0x01` (Bulk OUT): High-speed bulk write data stream
+* **Mandatory Handshake**: Device requires `GET_DESCRIPTOR` string requests (strings `1` & `2`) before accepting bulk packets.
+* **Detailed Protocol Specification**: See [`linux/README.md`](linux/README.md) for full reverse-engineering notes and packet breakdown.
+
+---
+
+## 📁 Repository Structure
+
+```
+├── build_debian_package.sh    # Automated script to build Debian arm64 .deb
+├── Dockerfile.debian-arm64    # Container definition for Debian arm64 builds
+├── packages/                  # Pre-compiled .deb, .rpm, and tarball packages
+│   ├── imsprog_1.9.1-1_arm64.deb
+│   ├── imsprog-1.9.1-1.fc44.aarch64.rpm
+│   └── README.md
+├── IMSProg/                   # Submodule with EZP2023+ Qt GUI driver integration
+│   ├── IMSProg_programmer/    # GUI chip programmer & EZP2023+ bulk driver
+│   ├── IMSProg_editor/        # Chip database editor
+│   └── IMSProg_database_update/ # Database updater
+├── linux/                     # Standalone Linux CLI drivers & reverse engineering
+│   ├── 99-ezp2023.rules       # Udev rules for device permissions
+│   ├── ezp2023.py             # Pure-Python CLI tool
+│   ├── ezp2023.c              # Fast native C CLI tool
+│   ├── ezp_db.py              # Chip database parser & search tool
+│   └── README.md              # Detailed protocol & hardware specification
+└── EZP2023+ ver3.0/           # Original Windows v3.0 binaries & driver archive
+```
 
 ---
 
 ## 📄 License & Credits
 
-* Hardware protocol reverse-engineered from the original software for open-source Linux interoperability.
-* Linux driver code provided under GPL-2.0-or-later.
+* Hardware protocol reverse-engineered from official software for open-source Linux interoperability.
+* Drivers and tools released under **GPL-2.0-or-later** / **GPL-3.0-or-later**.
