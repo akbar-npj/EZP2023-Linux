@@ -1,0 +1,11 @@
+# Binaries and build artifacts
+linux/ezp2023
+*.o
+*.so
+__pycache__/
+*.pyc
+*.pyo
+
+# System files
+.DS_Store
+Thumbs.db
