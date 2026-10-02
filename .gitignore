@@ -1,4 +1,5 @@
 # Binaries and build artifacts
+build/
 linux/ezp2023
 *.o
 *.so

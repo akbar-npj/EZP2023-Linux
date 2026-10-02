@@ -48,7 +48,39 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 
 ---
 
-## 🛠️ Compiling IMSProg From Source
+## 🛠️ Automated Compilation & Testing (`build.sh`)
+
+A unified automation script [`build.sh`](build.sh) is provided at the repository root to automate native compilation, run automated verification tests, package builds, and push updates.
+
+```bash
+# Compile all targets and run the test suite (default)
+./build.sh
+
+# Compile only (native C CLI + IMSProg Qt6 suite)
+./build.sh compile
+
+# Run the automated test suite (ELF 64KB page alignment, headless Qt run, DB verification)
+./build.sh test
+
+# Build containerized Debian .deb package (via Podman/Docker)
+./build.sh deb
+
+# Build Fedora RPM package (via rpmbuild)
+./build.sh rpm
+
+# Install compiled binaries and udev rules to /usr
+./build.sh install
+
+# Clean build artifacts
+./build.sh clean
+
+# Build, test, and automatically push to GitHub on test success
+./build.sh all --push -m "feat: your commit message"
+```
+
+---
+
+## 🔧 Manual Compilation From Source
 
 ### 1. Prerequisites
 
@@ -192,6 +224,7 @@ make
 ## 📁 Repository Structure
 
 ```
+├── build.sh                   # Unified build, test, package & release automation script
 ├── build_debian_package.sh    # Automated script to build Debian arm64 .deb
 ├── Dockerfile.debian-arm64    # Container definition for Debian arm64 builds
 ├── packages/                  # Pre-compiled .deb, .rpm, and tarball packages
